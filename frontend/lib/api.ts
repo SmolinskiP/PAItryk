@@ -224,9 +224,10 @@ export async function sendChat(
 
 export async function streamChat(
   input: {
-    message: string;
+    messages: ChatMessage[];
     recipient: string | null;
     session_id: string | null;
+    save: boolean;
   },
   handlers: {
     onMeta?: (meta: { session_id: string; provider: string }) => void;

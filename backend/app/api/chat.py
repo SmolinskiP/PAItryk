@@ -19,12 +19,14 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     recipient: str | None = Field(default="karolina")
     session_id: str | None = None
+    save: bool = Field(default=False)
 
 
 class ChatStreamRequest(BaseModel):
-    message: str
+    messages: list[ChatMessage]
     recipient: str | None = Field(default="karolina")
     session_id: str | None = None
+    save: bool = Field(default=False)
 
 
 class ChatResponse(BaseModel):
@@ -45,25 +47,30 @@ class ChatHistoryResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     provider = request.app.state.provider
-    chat_store = request.app.state.chat_store
-    session = (
-        chat_store.get_session(req.session_id)
-        if req.session_id
-        else chat_store.create_session("public")
-    )
     retrieved = await request.app.state.retriever.retrieve(
         build_retrieval_query(req.messages),
         recipient=req.recipient,
     )
     system = load_system_prompt(format_memory_context(retrieved))
     text = await provider.chat(req.messages, system)
-    for message in req.messages:
-        chat_store.append_message(session.id, message)
-    chat_store.append_message(session.id, ChatMessage(role="assistant", content=text))
+
+    session_id = req.session_id or ""
+    if req.save:
+        chat_store = request.app.state.chat_store
+        session = (
+            chat_store.get_session(req.session_id)
+            if req.session_id
+            else chat_store.create_session("public")
+        )
+        for message in req.messages:
+            chat_store.append_message(session.id, message)
+        chat_store.append_message(session.id, ChatMessage(role="assistant", content=text))
+        session_id = session.id
+
     return ChatResponse(
         message=ChatMessage(role="assistant", content=text),
         provider=provider.name,
-        session_id=session.id,
+        session_id=session_id,
         retrieved_memories=retrieved,
     )
 
@@ -72,24 +79,37 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
 async def chat_stream(req: ChatStreamRequest, request: Request) -> StreamingResponse:
     async def events() -> AsyncIterator[str]:
         provider = request.app.state.provider
-        chat_store = request.app.state.chat_store
-        session = (
-            chat_store.get_session(req.session_id)
-            if req.session_id
-            else chat_store.create_session("public")
-        )
-        user_message = ChatMessage(role="user", content=req.message)
-        history = chat_store.get_messages(session.id)
-        messages = [*history, user_message]
+        messages = req.messages
+
+        # Conditionally persist — by default (save=False) nothing is written to DB.
+        session_id = req.session_id or ""
+        session = None
+        if req.save:
+            chat_store = request.app.state.chat_store
+            if req.session_id:
+                # Existing session — earlier messages are already in DB.
+                # Only persist the latest user message from this request.
+                session = chat_store.get_session(req.session_id)
+                if messages and messages[-1].role == "user":
+                    chat_store.append_message(session.id, messages[-1])
+            else:
+                # New session — persist every message from this request.
+                session = chat_store.create_session("public")
+                for m in messages:
+                    chat_store.append_message(session.id, m)
+            session_id = session.id
+            if messages and messages[-1].role == "user":
+                chat_store.set_title_from_first_user_message(
+                    session.id, messages[-1].content
+                )
+
         retrieved = await request.app.state.retriever.retrieve(
             build_retrieval_query(messages),
             recipient=req.recipient,
         )
         system = load_system_prompt(format_memory_context(retrieved))
-        chat_store.append_message(session.id, user_message)
-        chat_store.set_title_from_first_user_message(session.id, req.message)
 
-        yield _sse("meta", {"session_id": session.id, "provider": provider.name})
+        yield _sse("meta", {"session_id": session_id, "provider": provider.name})
 
         assistant_text = ""
         try:
@@ -99,11 +119,12 @@ async def chat_stream(req: ChatStreamRequest, request: Request) -> StreamingResp
                 else:
                     assistant_text += chunk["text"]
                     yield _sse("delta", {"content": chunk["text"]})
-            chat_store.append_message(
-                session.id,
-                ChatMessage(role="assistant", content=assistant_text),
-            )
-            yield _sse("done", {"session_id": session.id})
+            if req.save and session is not None:
+                chat_store.append_message(
+                    session.id,
+                    ChatMessage(role="assistant", content=assistant_text),
+                )
+            yield _sse("done", {"session_id": session_id})
         except Exception as exc:
             yield _sse("error", {"message": str(exc)})
 

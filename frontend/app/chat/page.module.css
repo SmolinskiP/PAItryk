@@ -748,6 +748,19 @@
   gap: 6px;
   align-items: center;
   opacity: 0.75;
+  flex-wrap: wrap;
+}
+
+.saveToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.saveToggle input {
+  cursor: pointer;
 }
 
 .composerHint kbd {

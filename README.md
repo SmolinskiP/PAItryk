@@ -10,10 +10,10 @@ Cyfrowy klon językowy mówiący stylem Patryka Smolińskiego — bezpieczna prz
 
 | Pytanie | Plik / funkcja | Krótka odpowiedź z kodu |
 |---|---|---|
-| Czy moje wiadomości są zapisywane? | `backend/app/chats/store.py` — `ChatStore.append_message` | TAK, w lokalnej SQLite (`data/processed/chats.sqlite3`) |
+| Czy moje wiadomości są zapisywane? | `backend/app/api/chat.py` — flaga `save` w `ChatStreamRequest` | **DOMYŚLNIE NIE.** Bez włączonego toggle "zapisuj tę rozmowę" w UI backend pomija wszystkie wywołania `chat_store.append_message` i nie tworzy sesji. Historia żyje tylko w pamięci przeglądarki — zamknięcie karty = wszystko znika. Toggle ON = wtedy zapis do lokalnej SQLite (`data/processed/chats.sqlite3`). |
 | Czy "usuń rozmowę" naprawdę usuwa? | `backend/app/chats/store.py` — `delete_session` + `_connect` | TAK i mocno. `DELETE FROM chat_sessions/chat_messages` + `PRAGMA secure_delete = ON` (wolne strony nadpisywane zerami, nie tylko oznaczane jako wolne) + `VACUUM` po każdym usunięciu (defragmentacja pliku) + `PRAGMA journal_mode = DELETE` (brak WAL z resztkami). Forensic recovery z pliku SQLite — niemożliwe. |
 | Czy strona wysyła moje dane na zewnątrz? | `backend/app/llm/{claude,ollama}_provider.py` | Tylko do wybranego LLM (Anthropic albo lokalnego Ollama). Brak telemetrii, brak analytics. |
-| Czy autor (admin) ma dostęp do moich rozmów? | (architektura) | **TAK technicznie** — żaden czat nie może działać bez chwilowego zapisu (sesja, kontekst rozmowy, historia w trakcie), a baza siedzi na jego maszynie. Co JEST gwarantowane kodem: guzik "usuń" robi twardy `DELETE` z bazy (zobacz `delete_session`). Po nim nic nie zostaje. "Nie czytam" w treści strony to **deklaracja**, nie blokada techniczna. |
+| Czy autor (admin) ma dostęp do moich rozmów? | (architektura) | **DOMYŚLNIE NIE** — bez włączonego toggle nic nie jest zapisywane w bazie, więc admin nie ma czego czytać (historia żyje wyłącznie w Twojej karcie przeglądarki). Jeśli WŁĄCZYSZ "zapisuj tę rozmowę" — wtedy TAK, technicznie ma dostęp (baza siedzi na jego serwerze). Guzik "usuń" robi wtedy twardy `DELETE` + `secure_delete` + `VACUUM` (sekcja niżej). |
 | Czy bot jest instruowany do manipulacji rozmówcą? | `backend/app/persona/system_prompt.py` | **Nie jest w repo** (zawiera osobiste przykłady). Patrz sekcja 2. |
 | Czy są jakieś cookies / analytics / trackery? | `frontend/app/`, `frontend/components/` | Brak. Tylko własny localStorage do theme i collapse stanu sidebara. |
 

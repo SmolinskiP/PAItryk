@@ -55,6 +55,7 @@ function ChatExperience() {
   const [error, setError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [overlayReady, setOverlayReady] = useState(false);
+  const [saveHistory, setSaveHistory] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
 
@@ -143,9 +144,18 @@ function ChatExperience() {
     setError(null);
 
     let activeSessionId = sessionId;
+    const historyForRequest: ChatMessage[] = [
+      ...messages.map(({ role, content }) => ({ role, content })),
+      { role: "user", content: text }
+    ];
     try {
       await streamChat(
-        { message: text, recipient: RECIPIENT, session_id: activeSessionId },
+        {
+          messages: historyForRequest,
+          recipient: RECIPIENT,
+          session_id: activeSessionId,
+          save: saveHistory
+        },
         {
           onMeta: (meta) => {
             activeSessionId = meta.session_id;
@@ -173,7 +183,7 @@ function ChatExperience() {
           onError: (message) => setError(message)
         }
       );
-      await reloadSessions();
+      if (saveHistory) await reloadSessions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Błąd rozmowy");
     } finally {
@@ -304,6 +314,15 @@ function ChatExperience() {
             </button>
           </div>
           <div className={styles.composerHint}>
+            <label className={styles.saveToggle}>
+              <input
+                type="checkbox"
+                checked={saveHistory}
+                onChange={(event) => setSaveHistory(event.target.checked)}
+              />
+              <span>zapisuj tę rozmowę</span>
+            </label>
+            <span>·</span>
             <kbd>Enter</kbd> wyślij <span>·</span> <kbd>Shift</kbd>+<kbd>Enter</kbd> nowa linia
           </div>
         </div>
