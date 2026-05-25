@@ -18,6 +18,12 @@ class ChatStore:
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path)
         conn.row_factory = sqlite3.Row
+        # secure_delete=ON makes SQLite overwrite freed pages with zeros instead
+        # of leaving deleted content recoverable from the file.
+        conn.execute("PRAGMA secure_delete = ON")
+        # journal_mode=DELETE deletes the rollback journal after commit (no WAL
+        # file lingering with deleted content).
+        conn.execute("PRAGMA journal_mode = DELETE")
         return conn
 
     def _init_db(self) -> None:
@@ -168,6 +174,11 @@ class ChatStore:
                 "DELETE FROM chat_sessions WHERE id = ?",
                 (session_id,),
             )
+        # VACUUM reclaims free pages and (with secure_delete=ON above) ensures
+        # no forensic remnants of the deleted rows remain in the file.
+        # Must run outside a transaction, hence a separate connection.
+        with self._connect() as conn:
+            conn.execute("VACUUM")
 
     def _session_from_row(self, row: sqlite3.Row) -> ChatSession:
         return ChatSession(
