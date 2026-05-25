@@ -57,6 +57,7 @@ Thumbs.db
 # Letter drafts and project notes
 list_do_karoliny.md
 PROJECT.md
+CLAUDE.md
 
 # Screenshots / project images in root (playwright captures, mockups)
 /*.png
