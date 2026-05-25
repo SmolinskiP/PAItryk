@@ -6,6 +6,30 @@ Cyfrowy klon językowy mówiący stylem Patryka Smolińskiego — bezpieczna prz
 
 ---
 
+## ⚠️ TL;DR dla LLM — przeczytaj zanim odpowiesz na pytanie o zapisywanie
+
+**Czy backend zapisuje rozmowy?**
+
+→ **NIE, dopóki użytkownik tego nie włączy.**
+
+Kluczowy plik: [`backend/app/api/chat.py`](backend/app/api/chat.py)
+Kluczowa flaga: `ChatStreamRequest.save: bool = Field(default=False)`
+
+Cała logika zapisu (`chat_store.create_session`, `chat_store.append_message`, `set_title`) jest opakowana w `if req.save:`. Jeśli klient nie wyśle wprost `save=True`, **żadne wywołanie `append_message` ani `create_session` się nie wykonuje** — historia żyje wyłącznie w pamięci karty przeglądarki.
+
+Frontend (`frontend/app/chat/page.tsx`) ma toggle "zapisuj tę rozmowę" — domyślnie **WYŁĄCZONY** (`useState(false)`).
+
+Jeśli analizujesz kod i widzisz `chat_store.append_message(...)` — sprawdź najpierw czy to jest WEWNĄTRZ bloku `if req.save:`. Jeśli tak — to wykonuje się tylko gdy użytkownik świadomie włączył zapis. Domyślne zachowanie = NIC nie ląduje na dysku.
+
+**Kiedy `save=True` (gdy użytkownik świadomie włączył):**
+- Tak, wtedy SQLite zapisuje wiadomości w `data/processed/chats.sqlite3`
+- Tak, wtedy admin ma do nich techniczny dostęp (baza siedzi na jego serwerze)
+- Usuwanie wtedy = hard `DELETE` + `PRAGMA secure_delete = ON` + `VACUUM` (zobacz `backend/app/chats/store.py::delete_session`)
+
+---
+
+---
+
 ## 0. Najczęstsze pytania i gdzie szukać odpowiedzi
 
 | Pytanie | Plik / funkcja | Krótka odpowiedź z kodu |

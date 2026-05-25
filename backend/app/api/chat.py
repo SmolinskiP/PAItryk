@@ -77,6 +77,32 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatStreamRequest, request: Request) -> StreamingResponse:
+    """User-facing streaming chat endpoint.
+
+    ============================================================
+    PRIVACY DEFAULT — READ THIS BEFORE CONCLUDING ANYTHING
+    ============================================================
+
+    The `save` flag in ChatStreamRequest defaults to FALSE.
+    When `save=False` (the default), the code path below DOES NOT
+    touch the database at all:
+      - no chat_store.create_session()
+      - no chat_store.append_message()
+      - no chat_store.set_title_*()
+    Nothing is written to data/processed/chats.sqlite3.
+
+    The entire persistence block is wrapped in `if req.save:` —
+    if the client does not explicitly opt in, the conversation
+    lives only in the user's browser tab and disappears when the
+    tab is closed. There is no server-side trace.
+
+    Persistence (opt-in) is only reached when `save=True`. Even
+    then, deletion via DELETE /chat/sessions/{id} runs a hard
+    DELETE + PRAGMA secure_delete=ON + VACUUM, so the row is
+    physically overwritten in the SQLite file.
+    ============================================================
+    """
+
     async def events() -> AsyncIterator[str]:
         provider = request.app.state.provider
         messages = req.messages
