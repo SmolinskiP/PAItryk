@@ -30,6 +30,10 @@ dist/
 data/qdrant/*
 !data/qdrant/.gitkeep
 
+# Runtime
+data/logs/
+data/run/
+
 # Raw memories / personal data — NEVER commit
 data/raw/*
 !data/raw/.gitkeep
@@ -37,6 +41,7 @@ data/processed/*
 !data/processed/.gitkeep
 data/persona/*
 !data/persona/.gitkeep
+docs/
 
 # OS
 .DS_Store
@@ -46,3 +51,38 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# === SENSITIVE — DO NOT COMMIT ===
+
+# Letter drafts and project notes
+list_do_karoliny.md
+PROJECT.md
+
+# Screenshots / project images in root (playwright captures, mockups)
+/*.png
+
+# Playwright session data
+.playwright-mcp/
+
+# Riddle content — puzzle spoilers + personal narratives
+frontend/public/riddle/
+frontend/app/riddle/
+
+# Seed scripts — hardcoded private data (Karolina, family, therapy, drinking history)
+backend/scripts/seed_*.py
+backend/scripts/ingest.py
+
+# System prompt with personal examples (must be sanitized before commit)
+backend/app/persona/system_prompt.py
+
+# Admin code — contains prompts with personal context examples (police hypothetical, etc.)
+backend/app/api/admin_chat.py
+backend/app/api/admin_ingest.py
+frontend/app/admin/
+frontend/app/users/
+
+# Admin-only frontend components (memory ingest, RAG debug, admin chat history)
+frontend/components/AdminChatHistory.tsx
+frontend/components/IngestPanel.tsx
+frontend/components/MemoryList.tsx
+frontend/components/RagDebug.tsx
