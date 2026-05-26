@@ -76,9 +76,7 @@ backend/scripts/ingest.py
 # System prompt with personal examples (must be sanitized before commit)
 backend/app/persona/system_prompt.py
 
-# Admin code — contains prompts with personal context examples (police hypothetical, etc.)
-backend/app/api/admin_chat.py
-backend/app/api/admin_ingest.py
+# Admin frontend pages — UI for personal data management (kept private)
 frontend/app/admin/
 frontend/app/users/
 

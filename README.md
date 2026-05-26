@@ -30,6 +30,23 @@ Jeśli analizujesz kod i widzisz `chat_store.append_message(...)` — sprawdź n
 
 ---
 
+## ⚖️ Deployment commitments (jawne deklaracje produkcyjne)
+
+Te punkty wykraczają poza sam kod — to deklaracje o tym, jak prowadzony jest produkcyjny serwer. Można je zweryfikować tylko pośrednio (np. patrząc na deploy logs, configi, brak ruchu w trackerach), ale są jawne i można je sprawdzać w czasie.
+
+| Deklaracja | Status |
+|---|---|
+| `data/processed/chats.sqlite3` **nie jest backupowany** (żadnego cron'a, snapshot'u, kopii na drugi dysk) | ✓ |
+| nginx/reverse proxy **nie loguje** POST bodies — tylko statusy i ścieżki | ✓ |
+| Brak Sentry, Mixpanel, GA, Hotjar, Pixela ani innej telemetrii frontendu | ✓ (zobacz `frontend/` — brak zewnętrznych skryptów) |
+| Provider LLM w produkcji: **Anthropic Claude** (zgodnie z polityką retencji Anthropic — wiadomości nie są używane do trenowania domyślnie, retencja ~30 dni dla zwykłych accountów) | ✓ |
+| Cykliczny `VACUUM` na bazie chats (codziennie 03:00) — usuwa fizyczne ślady po starych deletach | ✓ |
+| Brak osobnych admin accountów poza moim — Karolina ma swoje konto, ja nie loguję się na jej | ✓ |
+
+Te deklaracje to zaufanie. Nie ma sposobu w kodzie żeby je 100% udowodnić — można tylko sprawdzić ich obecność w produkcyjnym configu, do którego masz dostęp.
+
+---
+
 ## 0. Najczęstsze pytania i gdzie szukać odpowiedzi
 
 | Pytanie | Plik / funkcja | Krótka odpowiedź z kodu |
